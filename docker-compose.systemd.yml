@@ -1,0 +1,16 @@
+services:
+  systemd-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.systemd
+    privileged: true
+    tmpfs:
+      - /run
+      - /run/lock
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup
+    environment:
+      - container=docker
+    ports:
+      - "8080:8080"
+    tty: true

@@ -1,0 +1,27 @@
+services:
+  deb-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.deb-test
+    container_name: wsconsole-deb-test
+    hostname: friendly-core-test
+    privileged: true
+    ports:
+      - "8083:8080"
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+      - ./logs:/var/log/wsconsole:rw
+    networks:
+      - wsconsole-deb-test-net
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
+    environment:
+      - container=docker
+    stop_signal: SIGRTMIN+3
+    stop_grace_period: 30s
+
+networks:
+  wsconsole-deb-test-net:
+    driver: bridge

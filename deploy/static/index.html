@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>wsconsole - WebSocket Terminal</title>
+    
+    <!-- xterm.js CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #header {
+            background-color: #252526;
+            padding: 12px 20px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        #header h1 {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        #status {
+            padding: 4px 12px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        #status.connected {
+            background-color: #0e7a0d;
+            color: white;
+        }
+
+        #status.disconnected {
+            background-color: #a1260d;
+            color: white;
+        }
+
+        #status.connecting {
+            background-color: #c69026;
+            color: white;
+        }
+
+        #terminal-container {
+            flex: 1;
+            padding: 10px;
+            background-color: #000000;
+            overflow: hidden;
+        }
+
+        #terminal {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* xterm.js customization */
+        .xterm {
+            height: 100%;
+            padding: 5px;
+        }
+
+        .xterm-viewport {
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>wsconsole - WebSocket Terminal Gateway</h1>
+        <span id="status" class="disconnected">Disconnected</span>
+    </div>
+
+    <div id="terminal-container">
+        <div id="terminal"></div>
+    </div>
+
+    <!-- xterm.js -->
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.min.js"></script>
+
+    <script>
+        const status = document.getElementById('status');
+        let ws = null;
+        let term = null;
+        let fitAddon = null;
+        let terminalDataHandler = null;
+
+        function updateStatus(state) {
+            status.className = state;
+            status.textContent = state.charAt(0).toUpperCase() + state.slice(1);
+        }
+
+        function initTerminal() {
+            // Create xterm.js terminal
+            term = new Terminal({
+                cursorBlink: true,
+                cursorStyle: 'block',
+                fontSize: 14,
+                fontFamily: '"Cascadia Code", "Fira Code", "Courier New", monospace',
+                theme: {
+                    background: '#000000',
+                    foreground: '#ffffff',
+                    cursor: '#ffffff',
+                    cursorAccent: '#000000',
+                    selection: 'rgba(255, 255, 255, 0.3)',
+                    black: '#000000',
+                    red: '#cd3131',
+                    green: '#0dbc79',
+                    yellow: '#e5e510',
+                    blue: '#2472c8',
+                    magenta: '#bc3fbc',
+                    cyan: '#11a8cd',
+                    white: '#e5e5e5',
+                    brightBlack: '#666666',
+                    brightRed: '#f14c4c',
+                    brightGreen: '#23d18b',
+                    brightYellow: '#f5f543',
+                    brightBlue: '#3b8eea',
+                    brightMagenta: '#d670d6',
+                    brightCyan: '#29b8db',
+                    brightWhite: '#ffffff'
+                },
+                allowProposedApi: true
+            });
+
+            // Add fit addon for auto-resize
+            fitAddon = new FitAddon.FitAddon();
+            term.loadAddon(fitAddon);
+
+            // Add web links addon
+            const webLinksAddon = new WebLinksAddon.WebLinksAddon();
+            term.loadAddon(webLinksAddon);
+
+            // Open terminal in container
+            term.open(document.getElementById('terminal'));
+            
+            // Fit to container
+            fitAddon.fit();
+
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                if (fitAddon && term) {
+                    fitAddon.fit();
+                    sendResize();
+                }
+            });
+
+            // Focus terminal
+            term.focus();
+        }
+
+        function connectWebSocket() {
+            updateStatus('connecting');
+            
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            ws = new WebSocket(wsUrl);
+            ws.binaryType = 'arraybuffer';
+
+            ws.onopen = () => {
+                updateStatus('connected');
+                term.writeln('\x1b[32m=== Connected to wsconsole ===\x1b[0m');
+                
+                // Send initial terminal size
+                sendResize();
+
+                // Handle terminal input - only register once
+                if (!terminalDataHandler) {
+                    terminalDataHandler = term.onData((data) => {
+                        if (ws && ws.readyState === WebSocket.OPEN) {
+                            // Send as binary data
+                            const encoder = new TextEncoder();
+                            ws.send(encoder.encode(data));
+                        }
+                    });
+                }
+            };
+
+            ws.onmessage = (event) => {
+                if (event.data instanceof ArrayBuffer) {
+                    // Binary mode: decode and write to terminal
+                    const decoder = new TextDecoder('utf-8');
+                    const text = decoder.decode(event.data);
+                    term.write(text);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                term.writeln('\r\n\x1b[31m[ERROR] WebSocket connection error\x1b[0m');
+            };
+
+            ws.onclose = () => {
+                updateStatus('disconnected');
+                term.writeln('\r\n\x1b[33m=== Disconnected ===\x1b[0m');
+                
+                // Attempt to reconnect after 3 seconds
+                setTimeout(() => {
+                    term.writeln('\x1b[36mReconnecting...\x1b[0m');
+                    connectWebSocket();
+                }, 3000);
+            };
+        }
+
+        function sendResize() {
+            if (ws && ws.readyState === WebSocket.OPEN && term) {
+                const msg = JSON.stringify({
+                    type: 'resize',
+                    cols: term.cols,
+                    rows: term.rows
+                });
+                ws.send(msg);
+            }
+        }
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            initTerminal();
+            connectWebSocket();
+        });
+    </script>
+</body>
+</html>

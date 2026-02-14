@@ -1,0 +1,47 @@
+FROM mcr.microsoft.com/devcontainers/go:2-1.25-trixie
+
+# Install systemd and runtime dependencies
+RUN apt-get update && \
+    apt-get install -y systemd systemd-sysv polkitd dbus && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Disable journald completely - remove unit files
+RUN rm -f /lib/systemd/system/systemd-journald.service \
+    /lib/systemd/system/systemd-journald.socket \
+    /lib/systemd/system/systemd-journald-dev-log.socket \
+    /lib/systemd/system/systemd-journald-audit.socket
+
+# Copy application code
+COPY . /workspaces/terminal-gateway
+WORKDIR /workspaces/terminal-gateway
+
+# Build the application
+RUN go build -o wsconsole ./cmd/wsconsole
+
+# Install files
+RUN mkdir -p /usr/local/bin /usr/local/share/wsconsole/static /etc/systemd/system /etc/polkit-1/rules.d && \
+    cp wsconsole /usr/local/bin/ && \
+    cp deploy/static/index.html /usr/local/share/wsconsole/static/ && \
+    cp deploy/systemd/wsconsole.service /etc/systemd/system/ && \
+    chmod 644 /etc/systemd/system/wsconsole.service && \
+    cp deploy/polkit/10-wsconsole.rules /etc/polkit-1/rules.d/
+
+ENV container=docker
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Remove unnecessary systemd services
+RUN cd /lib/systemd/system/sysinit.target.wants/ && \
+    ls | grep -v systemd-tmpfiles-setup | xargs rm -f && \
+    rm -f /lib/systemd/system/multi-user.target.wants/* \
+    /etc/systemd/system/*.wants/* \
+    /lib/systemd/system/local-fs.target.wants/* \
+    /lib/systemd/system/sockets.target.wants/*udev* \
+    /lib/systemd/system/sockets.target.wants/*initctl* \
+    /lib/systemd/system/basic.target.wants/* \
+    /lib/systemd/system/anaconda.target.wants/*
+
+VOLUME ["/sys/fs/cgroup"]
+
+STOPSIGNAL SIGRTMIN+3
+CMD ["/lib/systemd/systemd"]

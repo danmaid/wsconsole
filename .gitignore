@@ -1,0 +1,52 @@
+# Binaries
+/wsconsole
+/wsconsole-linux
+/wsconsole-*
+/cmd/wsconsole/wsconsole
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Dependency directories
+vendor/
+
+# Go workspace file
+go.work
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local env
+.env
+.env.*
+
+# Dev Container
+.devcontainer/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Packaging
+packaging/deb/build/
+*.deb
+
+# Artifacts
+*.zip
+*.tar.gz
+dist/
+bin/
+
+# Logs
+logs/

@@ -1,0 +1,11 @@
+#!/bin/bash
+set -e
+
+# Stop and disable service before removal
+# Using || true to prevent removal failure if service is already stopped
+systemctl disable --now wsconsole.service || true
+
+# Reload systemd daemon
+systemctl daemon-reload
+
+exit 0

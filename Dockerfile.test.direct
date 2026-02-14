@@ -1,0 +1,51 @@
+# Test container for Direct Launcher (UID=0)
+# Runs wsconsole as root, uses direct /bin/login fork
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update && \
+    apt-get install -y \
+    ca-certificates \
+    login \
+    passwd \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create test user and set root password
+RUN useradd -m -s /bin/bash testuser && \
+    echo "testuser:testpass" | chpasswd && \
+    echo "root:root" | chpasswd
+
+# Configure proper bash prompts (root=#, users=$)
+RUN sed -i '/^# set a fancy prompt/,/^fi$/c\
+# set a fancy prompt (non-color, overwrite the one in /etc/profile)\
+# but only if not SUDOing and have SUDO_PS1 set; then assume smart user.\
+if ! [ -n "${SUDO_USER}" -a -n "${SUDO_PS1}" ]; then\
+  # Show # for root, $ for other users\
+  if [ "$(id -u)" -eq 0 ]; then\
+    PS1='"'"'${debian_chroot:+($debian_chroot)}\\u@\\h:\\w\\# '"'"'\
+  else\
+    PS1='"'"'${debian_chroot:+($debian_chroot)}\\u@\\h:\\w\\$ '"'"'\
+  fi\
+fi' /etc/bash.bashrc
+
+# Copy pre-built binary
+COPY wsconsole /usr/local/bin/wsconsole
+COPY deploy/static /usr/local/share/wsconsole/static
+
+# Ensure binary is executable
+RUN chmod +x /usr/local/bin/wsconsole
+
+WORKDIR /app
+
+# Run as root to enable direct launcher
+USER root
+
+EXPOSE 8080
+
+# Force direct launcher strategy
+CMD ["/usr/local/bin/wsconsole", \
+     "-addr", ":8080", \
+     "-static", "/usr/local/share/wsconsole/static", \
+     "-launcher", "direct", \
+     "-log", "debug"]

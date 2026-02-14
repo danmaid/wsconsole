@@ -1,0 +1,13 @@
+[Unit]
+Description=Web Console via systemd-run + /bin/login
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/wsconsole --addr=:8080 --log=debug --static=/usr/local/share/wsconsole/static --launcher=systemd-run
+Restart=always
+RestartSec=1
+StandardOutput=inherit
+StandardError=inherit
+
+[Install]
+WantedBy=multi-user.target

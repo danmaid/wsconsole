@@ -1,0 +1,21 @@
+#!/bin/bash
+set -e
+
+# Create wsconsole group if it doesn't exist
+groupadd -f wsconsole
+
+# Create wsconsole user if it doesn't exist
+# -r: system account
+# -g: primary group
+# -s: shell
+# -M: no home directory
+useradd -r -g wsconsole -s /usr/sbin/nologin -M wsconsole 2>/dev/null || true
+
+# Reload systemd daemon to recognize new unit file
+systemctl daemon-reload
+
+# Enable and start the service
+# Using || true to prevent installation failure if service fails to start
+systemctl enable --now wsconsole.service || true
+
+exit 0

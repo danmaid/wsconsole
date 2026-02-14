@@ -1,0 +1,75 @@
+# Test container for SystemdRun Launcher
+# Uses systemd-run for privilege escalation
+FROM debian:bookworm-slim
+
+# Install systemd and runtime dependencies
+RUN apt-get update && \
+    apt-get install -y \
+    systemd \
+    systemd-sysv \
+    login \
+    passwd \
+    ca-certificates \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create test user and set root password
+RUN useradd -m -s /bin/bash testuser && \
+    echo "testuser:testpass" | chpasswd && \
+    echo "root:root" | chpasswd
+
+# Configure proper bash prompts (root=#, users=$)
+RUN sed -i '/^# set a fancy prompt/,/^fi$/c\
+# set a fancy prompt (non-color, overwrite the one in /etc/profile)\
+# but only if not SUDOing and have SUDO_PS1 set; then assume smart user.\
+if ! [ -n "${SUDO_USER}" -a -n "${SUDO_PS1}" ]; then\
+  # Show # for root, $ for other users\
+  if [ "$(id -u)" -eq 0 ]; then\
+    PS1='"'"'${debian_chroot:+($debian_chroot)}\\u@\\h:\\w\\# '"'"'\
+  else\
+    PS1='"'"'${debian_chroot:+($debian_chroot)}\\u@\\h:\\w\\$ '"'"'\
+  fi\
+fi' /etc/bash.bashrc
+
+# Copy pre-built binary
+COPY wsconsole /usr/local/bin/wsconsole
+COPY deploy/static /usr/local/share/wsconsole/static
+
+# Ensure binary is executable
+RUN chmod +x /usr/local/bin/wsconsole
+
+# Create systemd service for wsconsole
+RUN mkdir -p /etc/systemd/system && \
+    echo '[Unit]\n\
+Description=WSConsole Test Service\n\
+After=network.target\n\
+\n\
+[Service]\n\
+Type=simple\n\
+ExecStart=/usr/local/bin/wsconsole -addr :8080 -static /usr/local/share/wsconsole/static -launcher systemd-run -log debug\n\
+Restart=always\n\
+RestartSec=5\n\
+StandardOutput=journal\n\
+StandardError=journal\n\
+\n\
+[Install]\n\
+WantedBy=multi-user.target' > /etc/systemd/system/wsconsole-test.service
+
+# Cleanup unnecessary systemd services (but do this BEFORE enabling our service)
+RUN cd /lib/systemd/system/sysinit.target.wants/ && \
+    ls | grep -v systemd-tmpfiles-setup | xargs rm -f || true && \
+    rm -f /lib/systemd/system/sockets.target.wants/*udev* \
+    /lib/systemd/system/sockets.target.wants/*initctl* || true
+
+# Enable the service AFTER cleanup
+RUN systemctl enable wsconsole-test.service
+
+ENV container=docker
+ENV DEBIAN_FRONTEND=noninteractive
+
+VOLUME ["/sys/fs/cgroup"]
+
+EXPOSE 8080
+
+STOPSIGNAL SIGRTMIN+3
+CMD ["/lib/systemd/systemd"]

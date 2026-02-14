@@ -1,0 +1,11 @@
+Package: wsconsole
+Version: 1.0.0
+Section: net
+Priority: optional
+Architecture: amd64
+Depends: systemd, polkitd, adduser
+Maintainer: danmaid <yamada@danmaid.com>
+Description: WebSocket Terminal Gateway
+ wsconsole provides a WebSocket-based terminal gateway that spawns
+ login sessions via systemd-run. It allows web-based terminal access
+ with full PTY support and terminal resizing.

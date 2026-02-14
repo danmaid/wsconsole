@@ -1,0 +1,58 @@
+# Dockerfile for testing deb package installation (Friendly Core simulation)
+# This simulates a Debian/Ubuntu environment like Friendly Core
+
+FROM debian:bookworm
+
+# Install systemd and required dependencies
+RUN apt-get update && \
+    apt-get install -y \
+    systemd \
+    systemd-sysv \
+    polkitd \
+    adduser \
+    sudo \
+    curl \
+    wget \
+    ca-certificates \
+    procps \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Configure systemd for container environment
+RUN systemctl mask \
+    systemd-resolved.service \
+    systemd-networkd.service \
+    systemd-timesyncd.service
+
+# Create test users
+RUN useradd -m -s /bin/bash -G sudo testuser && \
+    echo "testuser:testpass" | chpasswd && \
+    useradd -m -s /bin/bash -G sudo admin && \
+    echo "admin:admin" | chpasswd && \
+    echo "root:root" | chpasswd
+
+# Copy deb package (will be built by docker-compose)
+COPY wsconsole_1.0.0_amd64.deb /tmp/
+
+# Install the deb package
+# Note: systemd commands in postinst will fail during build (no systemd running yet)
+# but that's OK - the service will be started when container runs with systemd
+RUN dpkg -i /tmp/wsconsole_1.0.0_amd64.deb || true && \
+    rm /tmp/wsconsole_1.0.0_amd64.deb
+
+# Verify binary installation
+RUN test -f /usr/local/bin/wsconsole && \
+    test -f /etc/systemd/system/wsconsole.service && \
+    test -f /usr/local/share/wsconsole/static/index.html && \
+    echo "wsconsole package files installed successfully"
+
+# Expose port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8080/healthz || exit 1
+
+# Start systemd
+STOPSIGNAL SIGRTMIN+3
+CMD ["/lib/systemd/systemd"]

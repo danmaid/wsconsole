@@ -1,0 +1,21 @@
+/* Allow wsconsole group to execute systemd-run with uid=0 and --pty /bin/login
+ * 
+ * This rule grants permission to manage systemd units (specifically systemd-run)
+ * for processes running under the wsconsole group.
+ * 
+ * TODO: For production, add argument validation to restrict to:
+ *   - command: systemd-run
+ *   - required args: --uid=0, --pty, /bin/login
+ *   - Example validation (not fully implemented here):
+ *     action.lookup("unit") contains "systemd-run"
+ *     action.lookup("verb") == "start-transient-unit"
+ * 
+ * Current implementation provides broader access for simplicity.
+ */
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" &&
+        subject.isInGroup("wsconsole")) {
+        // Grant access to systemd-run for wsconsole group members
+        return polkit.Result.YES;
+    }
+});
