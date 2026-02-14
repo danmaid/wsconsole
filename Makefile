@@ -3,7 +3,7 @@
 BINARY_NAME=wsconsole
 INSTALL_PATH=/usr/local/bin
 STATIC_PATH=/usr/local/share/wsconsole/static
-VERSION ?= 1.0.0
+VERSION ?= 0.0.1
 DEB_ARCH ?= amd64
 DEB_GOARCH ?= amd64
 DEB_GOARM ?=
@@ -15,21 +15,21 @@ WSCONSOLE_URL=http://localhost:8080
 DEB_TEST_URL=http://localhost:8083
 
 build:
-	go build -o $(BINARY_NAME) ./cmd/wsconsole
+	go build -ldflags="-X main.Version=$(VERSION)" -o $(BINARY_NAME) ./cmd/wsconsole
 
 build-linux: build-linux-amd64
 
 build-linux-amd64:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o $(BINARY_NAME) ./cmd/wsconsole
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.Version=$(VERSION)" -o $(BINARY_NAME) ./cmd/wsconsole
 
 build-linux-arm64:
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o $(BINARY_NAME) ./cmd/wsconsole
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w -X main.Version=$(VERSION)" -o $(BINARY_NAME) ./cmd/wsconsole
 
 build-linux-armv7:
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -ldflags="-s -w" -o $(BINARY_NAME) ./cmd/wsconsole
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -ldflags="-s -w -X main.Version=$(VERSION)" -o $(BINARY_NAME) ./cmd/wsconsole
 
 build-deb:
-	CGO_ENABLED=0 GOOS=linux GOARCH=$(DEB_GOARCH) GOARM=$(DEB_GOARM) go build -ldflags="-s -w" -o $(BINARY_NAME) ./cmd/wsconsole
+	CGO_ENABLED=0 GOOS=linux GOARCH=$(DEB_GOARCH) GOARM=$(DEB_GOARM) go build -ldflags="-s -w -X main.Version=$(VERSION)" -o $(BINARY_NAME) ./cmd/wsconsole
 
 clean:
 	rm -f $(BINARY_NAME)

@@ -24,7 +24,11 @@ var (
 	staticDir        = flag.String("static", "./deploy/static", "Static files directory")
 	logLevel         = flag.String("log", "info", "Log level (debug, info, warn, error)")
 	launcherStrategy = flag.String("launcher", "auto", "Login launcher strategy: auto (default), direct (UID=0), or systemd-run")
+	version          = flag.Bool("version", false, "Show version information")
 )
+
+// Version is set during build with -ldflags
+var Version = "0.0.1"
 
 // loggingMiddleware wraps an HTTP handler with request/response logging
 func loggingMiddleware(next http.Handler) http.Handler {
@@ -71,6 +75,12 @@ func (rw *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 func main() {
 	flag.Parse()
 
+	// Handle version flag
+	if *version {
+		fmt.Printf("wsconsole version %s\n", Version)
+		os.Exit(0)
+	}
+
 	// Setup structured logging
 	level := slog.LevelInfo
 	switch *logLevel {
@@ -87,7 +97,7 @@ func main() {
 	}))
 	slog.SetDefault(logger)
 
-	slog.Info("starting wsconsole server", "addr", *addr, "launcher_strategy", *launcherStrategy)
+	slog.Info("starting wsconsole server", "version", Version, "addr", *addr, "launcher_strategy", *launcherStrategy)
 
 	// Setup HTTP routes
 	mux := http.NewServeMux()
