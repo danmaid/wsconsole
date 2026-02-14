@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile.test.direct
     ports:
-      - "8081:8080"
+      - "6081:6001"
     environment:
       - LOG_LEVEL=debug
     tty: true
@@ -29,7 +29,7 @@ services:
       - container=docker
       - LOG_LEVEL=debug
     ports:
-      - "8082:8080"
+      - "6082:6001"
     tty: true
     stdin_open: true
     cgroup: host

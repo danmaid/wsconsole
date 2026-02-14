@@ -31,6 +31,11 @@ go.work
 .env
 .env.*
 
+# TLS/HTTPS certificates (auto-generated or local)
+*.pem
+cert.pem
+key.pem
+
 # Dev Container
 .devcontainer/
 

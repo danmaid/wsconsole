@@ -1,102 +1,72 @@
-# 起動戦略のテスト
-
-このドキュメントでは、両方の起動戦略をテストするための Docker 環境の使い方を説明します。
-
-## 利用可能な戦略
-
-### 1. Direct 起動（`-launcher direct`）
-- **要件**: UID=0 (root) で実行
-- **方式**: `/bin/login` を直接 fork
-- **用途**: root で起動する本番環境
-- **テストポート**: 8081
-
-### 2. SystemdRun 起動（`-launcher systemd-run`）
-- **要件**: systemd-run が利用可能
-- **方式**: `systemd-run --uid=0 /bin/login` で権限昇格
-- **用途**: 一般ユーザーからの実行、systemd 管理
-- **テストポート**: 8082
+# テスト手順
 
 ## クイックスタート
 
-### すべてのテストを起動
-
 ```bash
+# 両方のテスト環境起動
 make test-launchers
+
+# または個別に
+make test-direct              # Direct launcher のみ
+make test-systemd-run         # SystemdRun launcher のみ
+make test-down                # 停止
 ```
 
-### 個別にテスト
+## テスト環境
+
+| 起動方式 | ポート | URL |
+|---------|--------|-----|
+| Direct | 6081 | https://localhost:6081/ |
+| SystemdRun | 6082 | https://localhost:6082/ |
+
+## 接続方法
+
+### ブラウザから
+
+- Direct: `https://localhost:6081/`
+- SystemdRun: `https://localhost:6082/`
+
+自己署名証明書の警告が表示される場合は、「詳細」→「アクセス」をクリック。
+
+### ヘルスチェック
 
 ```bash
-# Direct 起動のみ
-make test-direct
-
-# SystemdRun 起動のみ
-make test-systemd-run
-
-# 停止
-make test-down
+curl -k https://localhost:6081/healthz   # Direct
+curl -k https://localhost:6082/healthz   # SystemdRun
 ```
 
-## ログの確認
+### ログ確認
 
 ```bash
-# すべてのログ
-make test-logs
-
-# Direct 起動のログ
-make test-direct-logs
-
-# SystemdRun 起動のログ
-make test-systemd-run-logs
+make test-logs                 # 両方
+make test-direct-logs          # Direct のみ
+make test-systemd-run-logs     # SystemdRun のみ
 ```
 
-## 接続テスト
+## ユーザー情報
 
-### WebSocket クライアントを使用
+| ユーザー名 | パスワード |
+|-----------|-----------|
+| testuser | testpass |
+| root | root |
+
+## Debian パッケージテスト
 
 ```bash
-# Direct 起動 (port 8081)
-make test-client LAUNCHER=direct
-
-# SystemdRun 起動 (port 8082)
-make test-client LAUNCHER=systemd-run
+make deb-test                  # Debian パッケージテスト起動
+docker exec -it wsconsole-deb-test bash   # コンテナ内に入る
+make deb-test-down             # 停止
 ```
 
-**注意**: `websocat` または `wscat` が必要です。
+アクセス: `https://localhost:6083/`
+
+## ユニットテスト
 
 ```bash
-# websocat のインストール
-cargo install websocat
-
-# wscat のインストール
-npm install -g wscat
+make test                      # 全テスト実行
 ```
 
-### ブラウザから接続
-
-1. Direct 起動: http://localhost:8081/
-2. SystemdRun 起動: http://localhost:8082/
-
-### curl でヘルスチェック
-
-```bash
-curl http://localhost:8081/healthz  # Direct
-curl http://localhost:8082/healthz  # SystemdRun
-```
-
-## テスト用クレデンシャル
-
-両方のコンテナには同じテストユーザーが設定されています：
-
-- **ユーザー名**: `testuser`
-- **パスワード**: `testpass`
-
-## プロンプト表示
-
-テストコンテナでは、標準的な Unix プロンプトが正しく表示されます：
-
-- **Root ユーザー**: `root@container:/path#` (末尾が `#`)
-- **一般ユーザー**: `testuser@container:/path$` (末尾が `$`)
+**注意**: Linux 環境が必要です。
 
 **注意**: Dev Container では開発用のカスタムプロンプト（`root ➜ ~`）が表示されますが、テストコンテナや本番環境では標準的な Unix プロンプトが表示されます。
 

@@ -46,7 +46,7 @@ After=network.target\n\
 \n\
 [Service]\n\
 Type=simple\n\
-ExecStart=/usr/local/bin/wsconsole -addr :8080 -static /usr/local/share/wsconsole/static -launcher systemd-run -log debug\n\
+ExecStart=/usr/local/bin/wsconsole -addr :6001 -static /usr/local/share/wsconsole/static -launcher systemd-run -log debug\n\
 Restart=always\n\
 RestartSec=5\n\
 StandardOutput=journal\n\
@@ -69,7 +69,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 VOLUME ["/sys/fs/cgroup"]
 
-EXPOSE 8080
+EXPOSE 6001
 
 STOPSIGNAL SIGRTMIN+3
 CMD ["/lib/systemd/systemd"]

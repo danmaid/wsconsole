@@ -11,8 +11,8 @@ SYSTEMD_COMPOSE_FILE=docker-compose.systemd.yml
 TEST_COMPOSE_FILE=docker-compose.test.yml
 DEB_TEST_COMPOSE_FILE=docker-compose.deb-test.yml
 SYSTEMD_SERVICE=systemd-test
-WSCONSOLE_URL=http://localhost:8080
-DEB_TEST_URL=http://localhost:8083
+WSCONSOLE_URL=https://localhost:6001
+DEB_TEST_URL=https://localhost:6083
 
 build:
 	go build -ldflags="-X main.Version=$(VERSION)" -o $(BINARY_NAME) ./cmd/wsconsole
@@ -45,6 +45,15 @@ test-docker:
 run:
 	go run ./cmd/wsconsole
 
+run-http:
+	go run ./cmd/wsconsole -tls=false -addr ":6001"
+
+run-with-cert:
+	go run ./cmd/wsconsole -cert ./cert.pem -key ./key.pem
+
+run-with-prefix:
+	go run ./cmd/wsconsole -path-prefix /wsconsole
+
 systemd-build:
 	docker compose -f $(SYSTEMD_COMPOSE_FILE) build
 
@@ -75,13 +84,14 @@ systemd-logs:
 dev: build
 	@echo "🚀 Starting wsconsole in development mode..."
 	@echo "   Strategy: direct (UID=$(shell id -u))"
-	@echo "   Port: 8080"
+	@echo "   Port: 6001"
+	@echo "   Protocol: HTTPS (auto-generated cert)"
 	@echo "   Log level: debug"
 	@echo ""
 	@echo "🌐 Access URLs:"
-	@echo "   WebSocket: ws://localhost:8080/ws"
-	@echo "   Web UI:    http://localhost:8080/"
-	@echo "   Health:    http://localhost:8080/healthz"
+	@echo "   WebSocket: wss://localhost:6001/ws"
+	@echo "   Web UI:    https://localhost:6001/"
+	@echo "   Health:    https://localhost:6001/healthz"
 	@echo ""
 	@echo "🔐 Login credentials (run 'make setup-users' if needed):"
 	@echo "   testuser / testpass"
@@ -91,7 +101,7 @@ dev: build
 	@echo "📋 Press Ctrl+C to stop"
 	@echo ""
 	@trap 'echo ""; echo "⛔ Stopped wsconsole"; exit 0' INT; \
-	./$(BINARY_NAME) -addr :8080 -launcher direct -log debug -static ./deploy/static
+	./$(BINARY_NAME) -addr :6001 -launcher direct -log debug -static ./deploy/static
 
 setup-users:
 	@echo "👤 Setting up test users..."
@@ -167,13 +177,13 @@ test-launchers: build
 	@echo "================================================"
 	@echo ""
 	@echo "Test 1: Direct Launcher (UID=0)"
-	@echo "  URL: http://localhost:8081/ws"
+	@echo "  URL: wss://localhost:6081/ws"
 	@echo "  Strategy: direct"
 	@echo "  Description: Runs as root, directly forks /bin/login"
 	@echo "  Logs: docker compose -f $(TEST_COMPOSE_FILE) logs -f test-direct"
 	@echo ""
 	@echo "Test 2: SystemdRun Launcher"
-	@echo "  URL: http://localhost:8082/ws"
+	@echo "  URL: wss://localhost:6082/ws"
 	@echo "  Strategy: systemd-run"
 	@echo "  Description: Uses systemd-run for privilege escalation"
 	@echo "  Logs: docker compose -f $(TEST_COMPOSE_FILE) logs -f test-systemd-run"
@@ -192,8 +202,8 @@ test-direct: build
 	@echo "Starting Direct Launcher test container (UID=0)..."
 	docker compose -f $(TEST_COMPOSE_FILE) up -d --build test-direct
 	@echo ""
-	@echo "✅ Direct Launcher test running on port 8081"
-	@echo "🌐 WebSocket URL: ws://localhost:8081/ws"
+	@echo "✅ Direct Launcher test running on port 6081"
+	@echo "🌐 WebSocket URL: wss://localhost:6081/ws"
 	@echo "📋 View logs: make test-direct-logs"
 	@echo ""
 
@@ -201,8 +211,8 @@ test-systemd-run: build
 	@echo "Starting SystemdRun Launcher test container..."
 	docker compose -f $(TEST_COMPOSE_FILE) up -d --build test-systemd-run
 	@echo ""
-	@echo "✅ SystemdRun Launcher test running on port 8082"
-	@echo "🌐 WebSocket URL: ws://localhost:8082/ws"
+	@echo "✅ SystemdRun Launcher test running on port 6082"
+	@echo "🌐 WebSocket URL: wss://localhost:6082/ws"
 	@echo "📋 View logs: make test-systemd-run-logs"
 	@echo ""
 
@@ -219,8 +229,8 @@ test-systemd-run-logs:
 
 test-client:
 	@LAUNCHER=$${LAUNCHER:-direct}; \
-	if [ "$$LAUNCHER" = "systemd-run" ]; then PORT=8082; else PORT=8081; fi; \
-	URL="ws://localhost:$$PORT/ws?launcher=$$LAUNCHER"; \
+	if [ "$$LAUNCHER" = "systemd-run" ]; then PORT=6082; else PORT=6081; fi; \
+	URL="wss://localhost:$$PORT/ws?launcher=$$LAUNCHER"; \
 	echo "Testing launcher: $$LAUNCHER"; \
 	echo "Connecting to: $$URL"; \
 	echo "Credentials: testuser / testpass"; \
@@ -250,7 +260,7 @@ deb-test: deb-test-build deb-test-up deb-test-status
 	@echo ""
 	@echo "🌐 Access URLs:"
 	@echo "   Web UI:    $(DEB_TEST_URL)/"
-	@echo "   WebSocket: ws://localhost:8083/ws"
+	@echo "   WebSocket: wss://localhost:6083/ws"
 	@echo "   Health:    $(DEB_TEST_URL)/healthz"
 	@echo ""
 	@echo "📋 Useful commands:"
@@ -290,7 +300,7 @@ deb-test-status:
 	@docker compose -f $(DEB_TEST_COMPOSE_FILE) exec -T deb-test systemctl status wsconsole.service --no-pager || true
 	@echo ""
 	@echo "🔍 Port check:"
-	@docker compose -f $(DEB_TEST_COMPOSE_FILE) exec -T deb-test netstat -tlnp | grep 8080 || echo "   Port 8080 not listening"
+	@docker compose -f $(DEB_TEST_COMPOSE_FILE) exec -T deb-test netstat -tlnp | grep 6001 || echo "   Port 6001 not listening"
 
 deb-test-verify:
 	@echo "==================================="
@@ -305,9 +315,9 @@ deb-test-verify:
 	@echo "✓ Container is running"
 	@echo ""
 	@echo "Test 1: Health check endpoint..."
-	@docker exec wsconsole-deb-test curl -sf http://localhost:8080/healthz >/dev/null && echo "✓ Health check passed" || (echo "✗ Health check failed"; exit 1)
+	@docker exec wsconsole-deb-test curl -sfk https://localhost:6001/healthz >/dev/null && echo "✓ Health check passed" || (echo "✗ Health check failed"; exit 1)
 	@echo "Test 2: Web UI accessibility..."
-	@docker exec wsconsole-deb-test curl -sf http://localhost:8080/ | grep -q "wsconsole" && echo "✓ Web UI accessible" || (echo "✗ Web UI not accessible"; exit 1)
+	@docker exec wsconsole-deb-test curl -sfk https://localhost:6001/ | grep -q "wsconsole" && echo "✓ Web UI accessible" || (echo "✗ Web UI not accessible"; exit 1)
 	@echo "Test 3: SystemD service status..."
 	@docker exec wsconsole-deb-test systemctl is-active wsconsole.service >/dev/null && echo "✓ Service is active" || (echo "✗ Service is not active"; exit 1)
 	@echo "Test 4: Binary files..."

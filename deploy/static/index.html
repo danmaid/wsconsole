@@ -174,8 +174,24 @@
         function connectWebSocket() {
             updateStatus('connecting');
             
+            // Detect protocol from current page
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            // Get path prefix from URL (e.g., /wsconsole from http://host/wsconsole/)
+            let pathPrefix = window.location.pathname;
+            // Remove trailing slash and last path segment to get prefix
+            pathPrefix = pathPrefix.replace(/\/$/, '').split('/').slice(0, -1).join('/');
+            // Remove the index.html filename if present
+            if (pathPrefix.endsWith('.html')) {
+                pathPrefix = pathPrefix.substring(0, pathPrefix.lastIndexOf('/'));
+            }
+            if (pathPrefix === '') {
+                pathPrefix = '';
+            }
+            
+            const wsUrl = `${protocol}//${window.location.host}${pathPrefix}/ws`;
+            
+            console.log(`Connecting to WebSocket: ${wsUrl}`);
             
             ws = new WebSocket(wsUrl);
             ws.binaryType = 'arraybuffer';
