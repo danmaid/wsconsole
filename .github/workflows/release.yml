@@ -31,10 +31,13 @@ jobs:
     - name: Build binaries
       run: |
         # Build for amd64
-        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o wsconsole-linux-amd64 ./cmd/wsconsole
+        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.Version=${{ steps.get_version.outputs.VERSION }}" -o wsconsole-linux-amd64 ./cmd/wsconsole
         
         # Build for arm64
-        CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o wsconsole-linux-arm64 ./cmd/wsconsole
+        CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w -X main.Version=${{ steps.get_version.outputs.VERSION }}" -o wsconsole-linux-arm64 ./cmd/wsconsole
+        
+        # Build for armv7
+        CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -ldflags="-s -w -X main.Version=${{ steps.get_version.outputs.VERSION }}" -o wsconsole-linux-armv7 ./cmd/wsconsole
 
     - name: Create zip archives
       run: |
@@ -59,6 +62,17 @@ jobs:
         cd wsconsole-linux-arm64-package
         zip -r ../wsconsole-${{ steps.get_version.outputs.VERSION }}-linux-arm64.zip .
         cd ..
+        
+        # Create zip for armv7
+        mkdir -p wsconsole-linux-armv7-package
+        cp wsconsole-linux-armv7 wsconsole-linux-armv7-package/wsconsole
+        cp -r deploy/static wsconsole-linux-armv7-package/
+        cp -r deploy/systemd wsconsole-linux-armv7-package/
+        cp -r deploy/polkit wsconsole-linux-armv7-package/
+        cp README.md LICENSE wsconsole-linux-armv7-package/
+        cd wsconsole-linux-armv7-package
+        zip -r ../wsconsole-${{ steps.get_version.outputs.VERSION }}-linux-armv7.zip .
+        cd ..
 
     - name: Build deb package (amd64)
       run: |
@@ -80,8 +94,7 @@ jobs:
       run: |
         sha256sum wsconsole-${{ steps.get_version.outputs.VERSION }}-linux-amd64.zip > checksums.txt
         sha256sum wsconsole-${{ steps.get_version.outputs.VERSION }}-linux-arm64.zip >> checksums.txt
-        sha256sum wsconsole_${{ steps.get_version.outputs.VERSION }}_amd64.deb >> checksums.txt
-        sha256sum wsconsole_${{ steps.get_version.outputs.VERSION }}_arm64.deb >> checksums.txt
+        sha256sum wsconsole-${{ steps.get_version.outputs.VERSION }}-linux-armv7.zip >> checksums.txt
 
     - name: Create Release Notes
       run: |
@@ -103,6 +116,7 @@ jobs:
         #### Binary Archives (zip)
         - **Linux amd64**: `wsconsole-${{ steps.get_version.outputs.VERSION }}-linux-amd64.zip`
         - **Linux arm64**: `wsconsole-${{ steps.get_version.outputs.VERSION }}-linux-arm64.zip`
+        - **Linux armv7**: `wsconsole-${{ steps.get_version.outputs.VERSION }}-linux-armv7.zip`
         
         Extract and run:
         ```bash
@@ -123,6 +137,7 @@ jobs:
         files: |
           wsconsole-${{ steps.get_version.outputs.VERSION }}-linux-amd64.zip
           wsconsole-${{ steps.get_version.outputs.VERSION }}-linux-arm64.zip
+          wsconsole-${{ steps.get_version.outputs.VERSION }}-linux-armv7.zip
           wsconsole_${{ steps.get_version.outputs.VERSION }}_amd64.deb
           wsconsole_${{ steps.get_version.outputs.VERSION }}_arm64.deb
           checksums.txt
