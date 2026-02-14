@@ -96,7 +96,7 @@ jobs:
         CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -ldflags="-s -w" -o wsconsole ./cmd/wsconsole
 
         # Create deb package structure
-        make deb VERSION=${{ steps.get_version.outputs.VERSION }} DEB_ARCH=armv7 DEB_GOARCH=arm DEB_GOARM=7
+        make deb VERSION=${{ steps.get_version.outputs.VERSION }} DEB_ARCH=armhf DEB_GOARCH=arm DEB_GOARM=7
 
     - name: Generate checksums
       run: |
